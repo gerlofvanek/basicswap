@@ -952,6 +952,32 @@ def js_notifications(self, url_split, post_string, is_json) -> bytes:
     return bytes(json.dumps(swap_client.getNotifications()), "UTF-8")
 
 
+def js_updatestatus(self, url_split, post_string, is_json) -> bytes:
+    swap_client = self.server.swap_client
+    from basicswap import __version__
+
+    return bytes(
+        json.dumps(
+            {
+                "update_available": swap_client._update_available,
+                "current_version": __version__,
+                "latest_version": swap_client._latest_version,
+                "release_url": (
+                    f"https://github.com/basicswap/basicswap/releases/tag/v{swap_client._latest_version}"
+                    if swap_client._latest_version
+                    else None
+                ),
+                "release_notes": (
+                    f"New version v{swap_client._latest_version} is available. Click to view details on GitHub."
+                    if swap_client._latest_version
+                    else None
+                ),
+            }
+        ),
+        "UTF-8",
+    )
+
+
 def js_identities(self, url_split, post_string: str, is_json: bool) -> bytes:
     swap_client = self.server.swap_client
     swap_client.checkSystemStatus()
@@ -1559,6 +1585,7 @@ endpoints = {
     "rateslist": js_rates_list,
     "generatenotification": js_generatenotification,
     "checkupdates": js_checkupdates,
+    "updatestatus": js_updatestatus,
     "notifications": js_notifications,
     "identities": js_identities,
     "automationstrategies": js_automationstrategies,
