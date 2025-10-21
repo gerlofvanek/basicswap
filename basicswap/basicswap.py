@@ -11269,6 +11269,16 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                     settings_copy["notifications_outgoing_transactions"] = new_value
                     settings_changed = True
 
+            if "notifications_swap_completed" in data:
+                new_value = data["notifications_swap_completed"]
+                ensure(
+                    isinstance(new_value, bool),
+                    "New notifications_swap_completed value not boolean",
+                )
+                if settings_copy.get("notifications_swap_completed", True) != new_value:
+                    settings_copy["notifications_swap_completed"] = new_value
+                    settings_changed = True
+
             if "notifications_duration" in data:
                 new_value = data["notifications_duration"]
                 ensure(
@@ -11281,6 +11291,15 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                 )
                 if settings_copy.get("notifications_duration", 20) != new_value:
                     settings_copy["notifications_duration"] = new_value
+                    settings_changed = True
+
+            if "check_updates" in data:
+                new_value = data["check_updates"]
+                ensure(
+                    isinstance(new_value, bool), "New check_updates value not boolean"
+                )
+                if settings_copy.get("check_updates", True) != new_value:
+                    settings_copy["check_updates"] = new_value
                     settings_changed = True
 
             if settings_changed:
