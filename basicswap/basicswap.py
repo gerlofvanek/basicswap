@@ -1509,6 +1509,7 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
 
             try:
                 if version_tuple(latest_tag) > version_tuple(current_version):
+                    self._latest_version = latest_tag
                     if not self._update_available:
                         self._update_available = True
                         self.log.info(
@@ -1528,6 +1529,7 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                         self.log.info(f"Update v{latest_tag} already notified")
                 else:
                     self._update_available = False
+                    self._latest_version = None
                     self.log.info(f"BasicSwap is up to date (v{current_version})")
             except ValueError as e:
                 self.log.warning(f"Error comparing versions: {e}")
@@ -2025,6 +2027,13 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                 event_data["event"] = "swap_completed"
 
                 if self.ws_server and show_event:
+                    self.ws_server.send_message_to_all(json.dumps(event_data))
+            elif event_type == NT.UPDATE_AVAILABLE:
+                self.log.info(
+                    f"Update available: v{event_data.get('latest_version', 'unknown')}"
+                )
+                if self.ws_server and show_event:
+                    event_data["event"] = "update_available"
                     self.ws_server.send_message_to_all(json.dumps(event_data))
             else:
                 self.log.warning(f"Unknown notification {event_type}")

@@ -321,6 +321,7 @@ function ensureToastContainer() {
       updateHistoryDropdown();
 
       this.initializeBalanceTracking();
+      this.checkForPendingUpdateNotification();
 
       if (window.CleanupManager) {
         window.CleanupManager.registerResource('notificationManager', this, (mgr) => {
@@ -329,6 +330,29 @@ function ensureToastContainer() {
       }
 
       return this;
+    },
+
+    checkForPendingUpdateNotification: function() {
+      CleanupManager.setTimeout(async () => {
+        try {
+          const response = await fetch('/json/updatestatus');
+          const updateStatus = await response.json();
+
+          if (updateStatus.update_available && config.showUpdateNotifications) {
+            this.createToast(
+              `Update Available: v${updateStatus.latest_version}`,
+              'update_available',
+              {
+                subtitle: `Current: v${updateStatus.current_version} • Click to view release`,
+                releaseUrl: updateStatus.release_url,
+                releaseNotes: updateStatus.release_notes
+              }
+            );
+          }
+        } catch (error) {
+          console.error('Error checking for pending update notification:', error);
+        }
+      }, 2000);
     },
 
     updateSettings: function(newSettings) {
