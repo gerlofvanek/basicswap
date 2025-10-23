@@ -221,7 +221,7 @@ def startXmrDaemon(node_dir, bin_dir, daemon_bin, opts=[]):
 
 def startXmrWalletDaemon(node_dir, bin_dir, wallet_bin, opts=[]):
     daemon_path = os.path.expanduser(os.path.join(bin_dir, wallet_bin))
-    args = [daemon_path, "--non-interactive"]
+    args = [daemon_path]
 
     needs_rewrite: bool = False
     config_to_remove = [
