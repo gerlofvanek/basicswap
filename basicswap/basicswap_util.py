@@ -459,7 +459,7 @@ def describeEventEntry(event_type, event_msg):
     if event_type == EventLogTypes.LOCK_TX_B_INVALID:
         return "Detected invalid lock Tx B"
     if event_type == EventLogTypes.LOCK_TX_A_REFUND_TX_PUBLISHED:
-        return "Lock tx A refund tx published"
+        return "Lock tx A pre-refund tx published"
     if event_type == EventLogTypes.LOCK_TX_A_REFUND_SPEND_TX_PUBLISHED:
         return "Lock tx A refund spend tx published"
     if event_type == EventLogTypes.LOCK_TX_A_REFUND_SWIPE_TX_PUBLISHED:
@@ -471,7 +471,7 @@ def describeEventEntry(event_type, event_msg):
     if event_type == EventLogTypes.LOCK_TX_B_SPEND_TX_PUBLISHED:
         return "Lock tx B spend tx published"
     if event_type == EventLogTypes.LOCK_TX_A_REFUND_TX_SEEN:
-        return "Lock tx A refund tx seen in chain"
+        return "Lock tx A pre-refund tx seen in chain"
     if event_type == EventLogTypes.LOCK_TX_A_REFUND_SPEND_TX_SEEN:
         return "Lock tx A refund spend tx seen in chain"
     if event_type == EventLogTypes.SYSTEM_WARNING:
