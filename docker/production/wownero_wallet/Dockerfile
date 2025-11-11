@@ -13,4 +13,4 @@ VOLUME $WOWNERO_DATA
 COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["/wownero/wownero-wallet-rpc", "--non-interactive", "--config-file=/data/wownero-wallet-rpc.conf", "--confirm-external-bind"]
+CMD ["/wownero/wownero-wallet-rpc", "--config-file=/data/wownero-wallet-rpc.conf", "--confirm-external-bind"]
