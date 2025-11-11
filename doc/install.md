@@ -168,7 +168,7 @@ Install Homebrew (See https://brew.sh/):
 
 Dependencies:
 
-    brew install python git gnupg pkg-config jq
+    brew install python git gnupg pkg-config jq zeromq
 
 Close the terminal and open a new one to update the python symlinks.
 
