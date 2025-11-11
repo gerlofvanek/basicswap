@@ -6268,29 +6268,18 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                 try:
                     bid_changed = self.findTxB(ci_to, xmr_swap, bid, cursor, was_sent)
                 except Exception as e:
-                    error_msg = str(e)
-                    if any(
-                        x in error_msg.lower()
-                        for x in [
-                            "idle",
-                            "timeout",
-                            "connection",
-                            "no connection",
-                            "busy",
-                            "responsenotready",
-                        ]
-                    ):
+                    if ci_to.is_transient_error(e):
                         rpc_error_count = self.countBidEvents(
                             bid, EventLogTypes.LOCK_TX_B_RPC_ERROR, cursor
                         )
                         if rpc_error_count < 10:
                             self.log.warning(
-                                f"Bid {self.log.id(bid_id)}: Temporary RPC error checking lock tx B ({rpc_error_count + 1}/10): {error_msg}"
+                                f"Bid {self.log.id(bid_id)}: Temporary RPC error checking lock tx B ({rpc_error_count + 1}/10): {e}"
                             )
                             self.logBidEvent(
                                 bid.bid_id,
                                 EventLogTypes.LOCK_TX_B_RPC_ERROR,
-                                error_msg,
+                                str(e),
                                 cursor,
                             )
                         else:
@@ -6301,7 +6290,7 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                             self.logBidEvent(
                                 bid.bid_id,
                                 EventLogTypes.ERROR,
-                                f"Persistent RPC error after {rpc_error_count} attempts: {error_msg}",
+                                f"Persistent RPC error after {rpc_error_count} attempts: {e}",
                                 cursor,
                             )
                             bid_changed = True
@@ -6317,20 +6306,9 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                     try:
                         chain_height = ci_to.getChainHeight()
                     except Exception as e:
-                        error_msg = str(e)
-                        if any(
-                            x in error_msg.lower()
-                            for x in [
-                                "idle",
-                                "timeout",
-                                "connection",
-                                "no connection",
-                                "busy",
-                                "responsenotready",
-                            ]
-                        ):
+                        if ci_to.is_transient_error(e):
                             self.log.warning(
-                                f"Bid {self.log.id(bid_id)}: Temporary RPC error getting chain height: {error_msg}"
+                                f"Bid {self.log.id(bid_id)}: Temporary RPC error getting chain height: {e}"
                             )
                         else:
                             raise
@@ -6362,24 +6340,7 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                             bid.setState(BidStates.XMR_SWAP_NOSCRIPT_COIN_LOCKED)
 
                             if was_received:
-                                if (
-                                    self.countBidEvents(
-                                        bid, EventLogTypes.LOCK_TX_B_INVALID, cursor
-                                    )
-                                    > 0
-                                ):
-                                    self.log.error(
-                                        f"Bid {self.log.id(bid_id)}: Follower lock tx B is invalid, aborting swap"
-                                    )
-                                    bid.setState(BidStates.BID_ERROR)
-                                    self.logBidEvent(
-                                        bid.bid_id,
-                                        EventLogTypes.ERROR,
-                                        "Follower lock tx B verification failed - invalid amount or destination",
-                                        cursor,
-                                    )
-                                    bid_changed = True
-                                elif TxTypes.XMR_SWAP_A_LOCK_REFUND in bid.txns:
+                                if TxTypes.XMR_SWAP_A_LOCK_REFUND in bid.txns:
                                     self.log.warning(
                                         f"Not releasing ads script coin lock tx for bid {self.log.id(bid_id)}: Chain A lock refund tx already exists."
                                     )
