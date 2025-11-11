@@ -94,6 +94,9 @@ class XMRInterface(CoinInterface):
                 "failed to get output distribution",
                 "request-sent",
                 "idle",
+                "busy",
+                "responsenotready",
+                "connection",
             ]
         ):
             return True

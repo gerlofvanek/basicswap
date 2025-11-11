@@ -6265,36 +6265,79 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                 BidStates.XMR_SWAP_SCRIPT_COIN_LOCKED,
                 BidStates.XMR_SWAP_SCRIPT_TX_PREREFUND,
             ):
-                bid_changed = self.findTxB(ci_to, xmr_swap, bid, cursor, was_sent)
+                try:
+                    bid_changed = self.findTxB(ci_to, xmr_swap, bid, cursor, was_sent)
+                except Exception as e:
+                    if ci_to.is_transient_error(e):
+                        rpc_error_count = self.countBidEvents(
+                            bid, EventLogTypes.LOCK_TX_B_RPC_ERROR, cursor
+                        )
+                        if rpc_error_count < 10:
+                            self.log.warning(
+                                f"Bid {self.log.id(bid_id)}: Temporary RPC error checking lock tx B ({rpc_error_count + 1}/10): {e}"
+                            )
+                            self.logBidEvent(
+                                bid.bid_id,
+                                EventLogTypes.LOCK_TX_B_RPC_ERROR,
+                                str(e),
+                                cursor,
+                            )
+                        else:
+                            self.log.error(
+                                f"Bid {self.log.id(bid_id)}: Too many consecutive RPC errors ({rpc_error_count}), aborting swap"
+                            )
+                            bid.setState(BidStates.BID_ERROR)
+                            self.logBidEvent(
+                                bid.bid_id,
+                                EventLogTypes.ERROR,
+                                f"Persistent RPC error after {rpc_error_count} attempts: {e}",
+                                cursor,
+                            )
+                            bid_changed = True
+                    else:
+                        raise
 
                 if (
                     bid.xmr_b_lock_tx
                     and bid.xmr_b_lock_tx.chain_height is not None
                     and bid.xmr_b_lock_tx.chain_height > 0
                 ):
-                    chain_height = ci_to.getChainHeight()
+                    chain_height = None
+                    try:
+                        chain_height = ci_to.getChainHeight()
+                    except Exception as e:
+                        if ci_to.is_transient_error(e):
+                            self.log.warning(
+                                f"Bid {self.log.id(bid_id)}: Temporary RPC error getting chain height: {e}"
+                            )
+                        else:
+                            raise
 
-                    if bid.debug_ind == DebugTypes.BID_STOP_AFTER_COIN_B_LOCK:
-                        self.log.debug(
-                            f"Adaptor-sig bid {self.log.id(bid_id)}: Stalling bid for testing: {bid.debug_ind}."
-                        )
-                        bid.setState(BidStates.BID_STALLED_FOR_TEST)
-                        self.logBidEvent(
-                            bid.bid_id,
-                            EventLogTypes.DEBUG_TWEAK_APPLIED,
-                            f"ind {bid.debug_ind}",
-                            cursor,
-                        )
-                    elif (
-                        bid.xmr_b_lock_tx.state != TxStates.TX_CONFIRMED
-                        and chain_height - bid.xmr_b_lock_tx.chain_height
-                        >= ci_to.blocks_confirmed
-                    ):
-                        self.logBidEvent(
-                            bid.bid_id, EventLogTypes.LOCK_TX_B_CONFIRMED, "", cursor
-                        )
-                        bid.xmr_b_lock_tx.setState(TxStates.TX_CONFIRMED)
-                        bid.setState(BidStates.XMR_SWAP_NOSCRIPT_COIN_LOCKED)
+                    if chain_height is not None:
+                        if bid.debug_ind == DebugTypes.BID_STOP_AFTER_COIN_B_LOCK:
+                            self.log.debug(
+                                f"Adaptor-sig bid {self.log.id(bid_id)}: Stalling bid for testing: {bid.debug_ind}."
+                            )
+                            bid.setState(BidStates.BID_STALLED_FOR_TEST)
+                            self.logBidEvent(
+                                bid.bid_id,
+                                EventLogTypes.DEBUG_TWEAK_APPLIED,
+                                f"ind {bid.debug_ind}",
+                                cursor,
+                            )
+                        elif (
+                            bid.xmr_b_lock_tx.state != TxStates.TX_CONFIRMED
+                            and chain_height - bid.xmr_b_lock_tx.chain_height
+                            >= ci_to.blocks_confirmed
+                        ):
+                            self.logBidEvent(
+                                bid.bid_id,
+                                EventLogTypes.LOCK_TX_B_CONFIRMED,
+                                "",
+                                cursor,
+                            )
+                            bid.xmr_b_lock_tx.setState(TxStates.TX_CONFIRMED)
+                            bid.setState(BidStates.XMR_SWAP_NOSCRIPT_COIN_LOCKED)
 
                         if was_received:
                             if TxTypes.XMR_SWAP_A_LOCK_REFUND in bid.txns:
