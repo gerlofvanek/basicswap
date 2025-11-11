@@ -6353,7 +6353,10 @@ class BasicSwap(BaseApp, BSXNetwork, UIApp):
                             >= ci_to.blocks_confirmed
                         ):
                             self.logBidEvent(
-                                bid.bid_id, EventLogTypes.LOCK_TX_B_CONFIRMED, "", cursor
+                                bid.bid_id,
+                                EventLogTypes.LOCK_TX_B_CONFIRMED,
+                                "",
+                                cursor,
                             )
                             bid.xmr_b_lock_tx.setState(TxStates.TX_CONFIRMED)
                             bid.setState(BidStates.XMR_SWAP_NOSCRIPT_COIN_LOCKED)
