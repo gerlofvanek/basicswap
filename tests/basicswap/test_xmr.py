@@ -2505,15 +2505,15 @@ class Test(BaseTest):
             test_delay_event,
             swap_clients[0],
             bid_id,
-            BidStates.XMR_SWAP_SCRIPT_COIN_LOCKED,
+            BidStates.BID_ERROR,
             wait_for=180,
         )
-        wait_for_bid(
-            test_delay_event,
-            swap_clients[1],
-            bid_id,
-            BidStates.XMR_SWAP_SCRIPT_COIN_LOCKED,
-            sent=True,
+
+        events = swap_clients[0].listEvents(bid_id=bid_id)
+        error_events = [e for e in events if e.event_type == EventLogTypes.ERROR]
+        assert len(error_events) >= 1
+        assert any(
+            "invalid amount or destination" in e.event_msg.lower() for e in error_events
         )
 
         swap_clients[0].abandonBid(bid_id)
@@ -2836,6 +2836,197 @@ class Test(BaseTest):
         finally:
             logging.info("Restoring XMR mining")
             pause_event.set()
+
+    def test_15_rpc_error_retry(self):
+        logging.info("Test RPC error retry logic")
+        swap_clients = self.swap_clients
+
+        offer_id = swap_clients[0].postOffer(
+            Coins.LTC,
+            Coins.XMR,
+            100 * COIN,
+            0.11 * XMR_COIN,
+            100 * COIN,
+            SwapTypes.XMR_SWAP,
+            TxLockTypes.SEQUENCE_LOCK_BLOCKS,
+            2400,
+        )
+
+        wait_for_offer(test_delay_event, swap_clients[1], offer_id)
+        offer = swap_clients[1].getOffer(offer_id)
+        bid_id = swap_clients[1].postXmrBid(offer_id, offer.amount_from)
+
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[0],
+            bid_id,
+            BidStates.BID_RECEIVED,
+            wait_for=(self.extra_wait_time + 40),
+        )
+        swap_clients[0].acceptXmrBid(bid_id)
+
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[0],
+            bid_id,
+            BidStates.SWAP_COMPLETED,
+            sent=True,
+            wait_for=(self.extra_wait_time + 600),
+        )
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[1],
+            bid_id,
+            BidStates.SWAP_COMPLETED,
+            wait_for=(self.extra_wait_time + 600),
+        )
+
+        js_0 = read_json_api(TEST_HTTP_PORT + 0, f"bids/{bid_id.hex()}")
+        js_1 = read_json_api(TEST_HTTP_PORT + 1, f"bids/{bid_id.hex()}")
+        assert js_0["bid_state"] == "Completed"
+        assert js_1["bid_state"] == "Completed"
+
+    def test_16_rpc_temporary_error_recovery(self):
+        from unittest.mock import patch
+
+        logging.info("Test temporary RPC error recovery")
+        swap_clients = self.swap_clients
+
+        offer_id = swap_clients[0].postOffer(
+            Coins.LTC,
+            Coins.XMR,
+            100 * COIN,
+            0.11 * XMR_COIN,
+            100 * COIN,
+            SwapTypes.XMR_SWAP,
+            TxLockTypes.SEQUENCE_LOCK_BLOCKS,
+            2400,
+        )
+
+        wait_for_offer(test_delay_event, swap_clients[1], offer_id)
+        offer = swap_clients[1].getOffer(offer_id)
+        bid_id = swap_clients[1].postXmrBid(offer_id, offer.amount_from)
+
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[0],
+            bid_id,
+            BidStates.BID_RECEIVED,
+            wait_for=(self.extra_wait_time + 40),
+        )
+        swap_clients[0].acceptXmrBid(bid_id)
+
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[0],
+            bid_id,
+            BidStates.XMR_SWAP_SCRIPT_COIN_LOCKED,
+            sent=True,
+            wait_for=180,
+        )
+
+        original_getChainHeight = swap_clients[0].ci(Coins.XMR).getChainHeight
+        call_count = [0]
+
+        def mock_getChainHeight_with_errors():
+            call_count[0] += 1
+            if call_count[0] <= 3:
+                raise Exception("http.client.ResponseNotReady: Idle")
+            return original_getChainHeight()
+
+        with patch.object(
+            swap_clients[0].ci(Coins.XMR),
+            "getChainHeight",
+            side_effect=mock_getChainHeight_with_errors,
+        ):
+            test_delay_event.wait(30)
+
+        events = swap_clients[0].listEvents(bid_id=bid_id)
+        rpc_error_events = [
+            e for e in events if e.event_type == EventLogTypes.LOCK_TX_B_RPC_ERROR
+        ]
+        assert len(rpc_error_events) >= 1
+        assert len(rpc_error_events) <= 3
+
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[0],
+            bid_id,
+            BidStates.SWAP_COMPLETED,
+            sent=True,
+            wait_for=(self.extra_wait_time + 600),
+        )
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[1],
+            bid_id,
+            BidStates.SWAP_COMPLETED,
+            wait_for=(self.extra_wait_time + 600),
+        )
+
+        js_0 = read_json_api(TEST_HTTP_PORT + 0, f"bids/{bid_id.hex()}")
+        js_1 = read_json_api(TEST_HTTP_PORT + 1, f"bids/{bid_id.hex()}")
+        assert js_0["bid_state"] == "Completed"
+        assert js_1["bid_state"] == "Completed"
+
+    def test_17_rpc_persistent_error_abort(self):
+        from unittest.mock import patch
+
+        logging.info("Test persistent RPC error causes abort")
+        swap_clients = self.swap_clients
+
+        offer_id = swap_clients[0].postOffer(
+            Coins.LTC,
+            Coins.XMR,
+            100 * COIN,
+            0.11 * XMR_COIN,
+            100 * COIN,
+            SwapTypes.XMR_SWAP,
+            TxLockTypes.SEQUENCE_LOCK_BLOCKS,
+            2400,
+        )
+
+        wait_for_offer(test_delay_event, swap_clients[1], offer_id)
+        offer = swap_clients[1].getOffer(offer_id)
+        bid_id = swap_clients[1].postXmrBid(offer_id, offer.amount_from)
+
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[0],
+            bid_id,
+            BidStates.BID_RECEIVED,
+            wait_for=(self.extra_wait_time + 40),
+        )
+        swap_clients[0].acceptXmrBid(bid_id)
+
+        wait_for_bid(
+            test_delay_event,
+            swap_clients[0],
+            bid_id,
+            BidStates.XMR_SWAP_SCRIPT_COIN_LOCKED,
+            sent=True,
+            wait_for=180,
+        )
+
+        def mock_findTxB_always_fails(*args, **kwargs):
+            raise Exception("http.client.ResponseNotReady: Idle")
+
+        with patch.object(
+            swap_clients[0], "findTxB", side_effect=mock_findTxB_always_fails
+        ):
+            test_delay_event.wait(120)
+
+        events = swap_clients[0].listEvents(bid_id=bid_id)
+        rpc_error_events = [
+            e for e in events if e.event_type == EventLogTypes.LOCK_TX_B_RPC_ERROR
+        ]
+        assert len(rpc_error_events) >= 10
+
+        bid, _, _, _, _ = swap_clients[0].getXmrBidAndOffer(bid_id)
+        assert bid.state == BidStates.BID_ERROR
+
+        swap_clients[0].abandonBid(bid_id)
+        swap_clients[1].abandonBid(bid_id)
 
 
 if __name__ == "__main__":

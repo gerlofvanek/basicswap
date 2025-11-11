@@ -212,6 +212,7 @@ class EventLogTypes(IntEnum):
     BCH_MERCY_TX_FOUND = auto()
     LOCK_TX_A_IN_MEMPOOL = auto()
     LOCK_TX_A_CONFLICTS = auto()
+    LOCK_TX_B_RPC_ERROR = auto()
 
 
 class XmrSplitMsgTypes(IntEnum):
@@ -458,6 +459,8 @@ def describeEventEntry(event_type, event_msg):
         return "Failed to publish lock tx B refund"
     if event_type == EventLogTypes.LOCK_TX_B_INVALID:
         return "Detected invalid lock Tx B"
+    if event_type == EventLogTypes.LOCK_TX_B_RPC_ERROR:
+        return "Temporary RPC error checking lock tx B: " + event_msg
     if event_type == EventLogTypes.LOCK_TX_A_REFUND_TX_PUBLISHED:
         return "Lock tx A pre-refund tx published"
     if event_type == EventLogTypes.LOCK_TX_A_REFUND_SPEND_TX_PUBLISHED:
